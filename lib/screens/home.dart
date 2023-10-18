@@ -1,10 +1,13 @@
+import 'dart:convert';
+
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:uni_clima/constants/api_constants.dart';
+import 'package:uni_clima/constants/text_constants.dart';
 import 'package:uni_clima/model/clima_model.dart';
 import 'package:uni_clima/model/geo_model.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:uni_clima/widgets/clima_widget.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -14,7 +17,6 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-
   final List<String> cidades = [
     'Aracaju',
     'Belém',
@@ -48,6 +50,8 @@ class _HomeState extends State<Home> {
   String cidadeSelecionada = 'São Paulo';
   late Geolocalizacao geolocalizacao;
   late ClimaModel climaModel;
+  bool isLoading = false;
+  TextEditingController cidadeController = TextEditingController();
 
   carregaGeolocalizacao() async {
     final params = {'q': cidadeSelecionada, 'appid': ApiConstants.apiKey};
@@ -61,6 +65,9 @@ class _HomeState extends State<Home> {
   }
 
   carregaClima() async {
+    setState(() {
+      isLoading = true;
+    });
     await carregaGeolocalizacao();
     final params = {
       'lat': geolocalizacao.latitude.toString(),
@@ -76,6 +83,15 @@ class _HomeState extends State<Home> {
     if (climaReponse.statusCode == 200) {
       climaModel = ClimaModel.fromJSON(jsonDecode(climaReponse.body));
     }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    carregaClima();
   }
 
   @override
@@ -90,6 +106,7 @@ class _HomeState extends State<Home> {
           padding: const EdgeInsets.all(8),
           child: Column(
             children: [
+              //Para travar as capitais:
               DropdownSearch<String>(
                 items: cidades,
                 selectedItem: 'São Paulo',
@@ -100,7 +117,60 @@ class _HomeState extends State<Home> {
                     carregaClima();
                   });
                 },
-              )
+              ),
+              //Row(
+              //  children: [
+              //     Expanded(
+              //        child: TextField(
+              //         controller: cidadeController,
+              //        maxLength: 120,
+              //        decoration: const InputDecoration(
+              //            labelText: TextConstants.localizacao),
+              //        onChanged: (value) {
+              //         setState(() {
+              //          cidadeSelecionada = cidadeController.text;
+              //         });
+              //       },
+              //        onSubmitted: (value) => carregaClima(),
+              //        )),
+              // IconButton(
+              //      onPressed: () => carregaClima(),
+              //      icon: const Icon(Icons.search))
+              //  ],
+              //  ),
+              Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: isLoading
+                              ? const CircularProgressIndicator(
+                            strokeWidth: 6,
+                            valueColor: AlwaysStoppedAnimation(Colors.blue),
+                          )
+                              : climaModel != null
+                              ? ClimaWidget(climaModel: climaModel)
+                              : const Text(TextConstants.semDados)),
+                      Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: isLoading
+                              ? Text(
+                            TextConstants.carregando,
+                            style: Theme
+                                .of(context)
+                                .textTheme
+                                .headlineMedium,
+                          )
+                              : IconButton(
+                            onPressed: carregaClima,
+                            icon: const Icon(Icons.refresh),
+                            iconSize: 50,
+                            color: Colors.blue,
+                            tooltip: TextConstants.recarregar,
+                          ))
+                    ],
+                  ))
             ],
           ),
         ),
